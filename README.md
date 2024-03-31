@@ -1,4 +1,4 @@
-Script for a Short-Term Asset Prediction Machine Learning Model - The Quant's Playbook @ Quant Galore
+## Script for a Short-Term Asset Prediction Machine Learning Model - The Quant's Playbook @ Quant Galore
 
 Original Source - ""
 
