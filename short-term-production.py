@@ -33,6 +33,16 @@ benchmark_data = pd.json_normalize(requests.get(f"https://api.polygon.io/v2/aggs
 benchmark_data.index = pd.to_datetime(benchmark_data.index, unit="ms", utc=True).tz_convert("America/New_York")
 benchmark_data["pct_change"] = round(benchmark_data["c"].pct_change()*100,2)
 
+vix_data = pd.json_normalize(requests.get(f"https://api.polygon.io/v2/aggs/ticker/VXX/range/1/day/2017-01-01/{today}?sort=asc&limit=50000&apiKey={polygon_api_key}").json()["results"]).set_index("t")
+vix_data.index = pd.to_datetime(vix_data.index, unit="ms", utc=True).tz_convert("America/New_York")
+vix_data["1_mo_avg"] = vix_data["c"].rolling(window=30).mean()
+vix_data["3_mo_avg"] = vix_data["c"].rolling(window=63).mean()
+vix_data["6_mo_avg"] = vix_data["c"].rolling(window=126).mean()
+vix_data['vol_regime'] = vix_data.apply(lambda row: 1 if (row['c'] > row['1_mo_avg']) else 0, axis=1)
+vix_data["str_date"] = vix_data.index.strftime("%Y-%m-%d")
+
+vol_regime = vix_data["vol_regime"].iloc[0]
+
 ##
 
 tickers = np.array(["SPY"])
@@ -128,6 +138,7 @@ for ticker in tickers:
     
 # The day's predictions for your selected tickers
 full_prediction_data = pd.concat(prediction_list)
+full_prediction_data["vol_regime"] = vol_regime
 
 # Separated into positive and negative predictions
 positive_pred = full_prediction_data[full_prediction_data["pred"] == 1]
