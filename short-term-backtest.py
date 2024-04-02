@@ -37,6 +37,14 @@ benchmark_data = pd.json_normalize(requests.get(f"https://api.polygon.io/v2/aggs
 benchmark_data.index = pd.to_datetime(benchmark_data.index, unit="ms", utc=True).tz_convert("America/New_York")
 benchmark_data["pct_change"] = round(benchmark_data["c"].pct_change()*100,2)
 
+vix_data = pd.json_normalize(requests.get(f"https://api.polygon.io/v2/aggs/ticker/VXX/range/1/day/2017-01-01/{today}?sort=asc&limit=50000&apiKey={polygon_api_key}").json()["results"]).set_index("t")
+vix_data.index = pd.to_datetime(vix_data.index, unit="ms", utc=True).tz_convert("America/New_York")
+vix_data["1_mo_avg"] = vix_data["c"].rolling(window=30).mean()
+vix_data["3_mo_avg"] = vix_data["c"].rolling(window=63).mean()
+vix_data["6_mo_avg"] = vix_data["c"].rolling(window=126).mean()
+vix_data['vol_regime'] = vix_data.apply(lambda row: 1 if (row['c'] > row['1_mo_avg']) else 0, axis=1)
+vix_data["str_date"] = vix_data.index.strftime("%Y-%m-%d")
+
 tickers_to_test = np.array(["TSLA"])
 
 full_ticker_data_list = []
@@ -142,6 +150,7 @@ for trade_date in backtest_dates:
             
             oos_data = elgiible_ticker_data[elgiible_ticker_data.index.date == pd.to_datetime(trade_date).date()].copy()
             oos_price_data = elgiible_ticker_ohlcv_data[elgiible_ticker_ohlcv_data.index.date == pd.to_datetime(trade_date).date()].copy()
+            oos_vix_data = vix_data[vix_data.index.date == pd.to_datetime(trade_date).date()].copy()
             price = oos_price_data["c"].iloc[0]
         
             X_test = oos_data.drop(["actual_return", "correlation", "ticker"], axis = 1)
@@ -187,7 +196,8 @@ for trade_date in backtest_dates:
             pred_df = pd.DataFrame({"pred": y_pred, "proba":y_pred_proba, "actual": y_test,
                                     "return_std": oos_data["return_std"].iloc[0],"cost": cost,
                                     "option_pnl": option_pnl, "option_pnl_percent": option_pnl_percent,
-                                    "days_to_exp": days_to_exp,"date": oos_data.index[0], "ticker": eligible_ticker})
+                                    "days_to_exp": days_to_exp,"date": oos_data.index[0],
+                                    "vol_regime": oos_vix_data["vol_regime"].iloc[0], "ticker": eligible_ticker})
             
             prediction_list.append(pred_df)
             
@@ -206,6 +216,7 @@ for trade_date in backtest_dates:
     print(f"{iteration}% complete, {time_remaining} left, ETA: {estimated_completion_time}")
 
 full_prediction_data = pd.concat(prediction_list)
+# full_prediction_data = full_prediction_data[full_prediction_data["vol_regime"] == 0].copy()
 full_prediction_data["capital"] = 1000 + (full_prediction_data["option_pnl"].cumsum()*100)
 
 plt.figure(dpi=200)
