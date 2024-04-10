@@ -41,7 +41,7 @@ vix_data["6_mo_avg"] = vix_data["c"].rolling(window=126).mean()
 vix_data['vol_regime'] = vix_data.apply(lambda row: 1 if (row['c'] > row['1_mo_avg']) else 0, axis=1)
 vix_data["str_date"] = vix_data.index.strftime("%Y-%m-%d")
 
-vol_regime = vix_data["vol_regime"].iloc[0]
+vol_regime = vix_data["vol_regime"].iloc[-1]
 
 ##
 
